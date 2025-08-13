@@ -17,10 +17,7 @@
         $stmt = $conn->prepare($sql);
         $stmt->execute([$username, $fullname, $email, $hashedPassword]);
     }
-
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -61,14 +58,8 @@
             <a href = "login.php" class="btn btn-link">เข้าสู่ระบบ</a>
         </div>
     </form>
-    
-
-
-
-
     </div>
     
-
     <!-- Boostrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 
