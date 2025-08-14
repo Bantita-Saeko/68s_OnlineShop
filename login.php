@@ -129,15 +129,15 @@
             <form method="post" class="row g-3">
                 <div class="mb3">
                     <label for="username_or_email" class="form-label">ชื่อผู้ใช้หรืออีเมล</label>
-                    <input type="text" name="username_or_email" id="username_or_email" class="form-control" required>
+                    <input type="text" name="username_or_email" id="username_or_email" class="form-control rounded-pill" required>
                 </div>
                 <div class="mb3">
                     <label for="password" class="form-label">รหัสผ่าน</label>
-                    <input type="password" name="password" id="password" class="form-control" required>
+                    <input type="password" name="password" id="password" class="form-control rounded-pill" required>
                 </div>
-                <div class="col-12 text-center">
-                    <button type="submit" class="btn btn-custom">เข้าสู่ระบบ</button>
-                    <a href="register.php" class="btn btn-outline-custom">สมัครสมาชิก</a>
+                <div class="col-12 text-center mt-4">
+                    <button type="submit" class="btn btn-custom rounded-pill">เข้าสู่ระบบ</button>
+                    <a href="register.php" class="btn btn-outline-custom rounded-pill">สมัครสมาชิก</a>
                 </div>
             </form>
             </div>

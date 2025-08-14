@@ -113,7 +113,7 @@
     </style>
 </head>
 <body>
-    <div class="container mt-2 w-50">
+    <div class="container mt-4 w-50">
         <div class="row g-0">
             <!-- ซ้าย -->
             <div class="col-md-5 left-side text-center">
