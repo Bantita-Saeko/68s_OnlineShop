@@ -80,7 +80,7 @@ body {
 <body class="container py-4">
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="text-gradient"><i class="bi bi-box-seam"></i> รายละเอียดสินค้า</h1>
+    <h1 class="text-gradient"><i class="bi bi-box-seam"></i> รายการสินค้า</h1>
     <div>
         <?php if ($isLoggedIn): ?>
             <span class="me-3">ยินดีต้อนรับ, <?= htmlspecialchars($_SESSION['username']) ?> (<?= $_SESSION['role'] ?>)</span>
