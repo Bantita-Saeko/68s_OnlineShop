@@ -1,5 +1,4 @@
 <?php
-session_start();
 require '../config.php';
 require 'authen_admin.php';
 
@@ -168,7 +167,7 @@ $totalCategories = $stmt->fetchColumn();
                 </a>
             </div>
             <div class="col-md-3">
-                <a href="categories.php" class="btn btn-gradient btn-categories w-100">
+                <a href="category.php" class="btn btn-gradient btn-categories w-100">
                     <i class="bi bi-tags btn-icon"></i>จัดการหมวดหมู่
                 </a>
             </div>
