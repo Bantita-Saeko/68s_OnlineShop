@@ -10,22 +10,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     $stock = intval($_POST['stock']);
     $category_id = intval($_POST['category_id']);
 
-    if (!empty($name) && $price > 0) {
-        $stmt = $conn->prepare("INSERT INTO products (product_name, description, price, stock, category_id) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $description, $price, $stock, $category_id]);
-        header("Location: products.php?added=1");
+    if ($name && $price > 0) {
+        $imageName = null;
+        if (!empty($_FILES['product_image']['name'])) {
+            $file = $_FILES['product_image'];
+            $allowed = ['image/jpeg', 'image/png'];
+
+            if (in_array($file['type'], $allowed)) {
+                $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+                $imageName = 'product_' . time() . '.' . $ext;
+                $path = __DIR__ . '/../product_images/' . $imageName;
+                move_uploaded_file($file['tmp_name'], $path);
+            }
+        }
+
+        $stmt = $conn->prepare("INSERT INTO products (product_name, description, price, stock, category_id, image)
+VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $description, $price, $stock, $category_id, $imageName]);
+        header("Location: products.php");
         exit;
     }
 }
 
-// ลบสินค้า
+// ลบสนิ คำ้ (ลบไฟลร์ปู ดว้ย)
 if (isset($_GET['delete'])) {
-    $product_id = intval($_GET['delete']);
-    $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ?");
+    $product_id = (int) $_GET['delete']; // แคสต์เป็น int
+
+// 1) ดงึชอื่ ไฟลร์ปู จำก DB ก่อน
+    $stmt = $conn->prepare("SELECT image FROM products WHERE product_id = ?");
     $stmt->execute([$product_id]);
-    header("Location: products.php?deleted=1");
+    $imageName = $stmt->fetchColumn(); // null ถ ้ำไม่มีรูป
+
+// 2) ลบใน DB ด ้วย Transaction
+    try {
+        $conn->beginTransaction();
+
+        $del = $conn ->prepare("DELETE FROM products WHERE product_id = ?");
+        $del->execute([$product_id]);
+
+        $conn->commit();
+    } catch (Exception $e) {
+        $conn->rollBack();
+        // ใส่ flash message หรือ log ได ้ตำมต ้องกำร
+        header("Location: products.php");
+        exit;
+    }
+
+    // 3) ลบไฟล์รูปหลัง DB ลบส ำเร็จ
+    if ($imageName) {
+        $baseDir = realpath(__DIR__ . '/../product_images'); // โฟลเดอร์เก็บรูป
+        $filePath = realpath($baseDir . '/' . $imageName);
+        // กัน path traversal: ต ้องอยู่ใต้ $baseDir จริง ๆ
+        if ($filePath && strpos($filePath, $baseDir) === 0 && is_file($filePath)) {
+            @unlink($filePath); // ใช ้@ กัน warning ถำ้ลบไมส่ ำเร็จ
+        }
+    }
+    header("Location: products.php");
     exit;
 }
+
+
+
+// ลบสินค้า
+// if (isset($_GET['delete'])) {
+//     $product_id = intval($_GET['delete']);
+//     $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ?");
+//     $stmt->execute([$product_id]);
+//     header("Location: products.php?deleted=1");
+//     exit;
+// }
 
 // ดึงรายการสินค้า
 $stmt = $conn->query("SELECT p.*, c.category_name 
@@ -42,6 +95,7 @@ $categories = $conn->query("SELECT * FROM categories ORDER BY category_name ASC"
 
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <title>จัดการสินค้า</title>
@@ -96,7 +150,7 @@ $categories = $conn->query("SELECT * FROM categories ORDER BY category_name ASC"
             transition: all 0.3s;
             border: none;
         }
-        
+
         .btn-delete:hover {
             filter: brightness(1.1);
             transform: translateY(-2px);
@@ -123,121 +177,143 @@ $categories = $conn->query("SELECT * FROM categories ORDER BY category_name ASC"
         }
     </style>
 </head>
-<body class="bg-light">
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
-        <h2 class="text-gradient"><i class="bi bi-box-seam"></i> จัดการสินค้า</h2>
-        <a href="index.php" class="btn btn-gradient btn-edit rounded-pill">← กลับหน้าผู้ดูแล</a>
-    </div>
 
-    <div class="stat-card mb-4">
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+            <h2 class="text-gradient"><i class="bi bi-box-seam"></i> จัดการสินค้า</h2>
+            <a href="index.php" class="btn btn-gradient btn-edit rounded-pill">← กลับหน้าผู้ดูแล</a>
+        </div>
+
+        <div class="stat-card mb-4">
             <i class="bi bi-box-seam stat-icon text-white"></i>
             <div class="fs-4 fw-bold text-white">จำนวนสินค้าทั้งหมด : <?= $totalProducts ?></div>
-    </div>
+        </div>
 
-    <!-- การ์ดเพิ่มสินค้าใหม่ -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="bi bi-plus-circle-fill me-2"></i>เพิ่มสินค้าใหม่</h5>
-        </div>
-        <div class="card-body">
-            <form method="post" class="row g-3">
-                <div class="col-md-4">
-                    <input type="text" name="product_name" class="form-control" placeholder="ชื่อสินค้า" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" step="0.01" name="price" class="form-control" placeholder="ราคา" required>
-                </div>
-                <div class="col-md-2">
-                    <input type="number" name="stock" class="form-control" placeholder="จำนวน" required>
-                </div>
-                <div class="col-md-4">
-                    <select name="category_id" class="form-select" required>
-                        <option value="">เลือกหมวดหมู่</option>
-                        <?php foreach ($categories as $cat): ?>
-                            <option value="<?= $cat['category_id'] ?>">
-                                <?= htmlspecialchars($cat['category_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <textarea name="description" class="form-control" placeholder="รายละเอียดสินค้า" rows="2"></textarea>
-                </div>
-                <div class="col-12 text-end">
-                    <button type="submit" name="add_product" class="btn btn-gradient btn-edit">+ เพิ่มสินค้า</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- การ์ดแสดงสินค้า -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="bi bi-card-list me-2"></i>รายการสินค้า</h5>
-        </div>
-        <div class="card-body">
-            <?php if (count($products) > 0): ?>
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ชื่อสินค้า</th>
-                            <th>หมวดหมู่</th>
-                            <th>ราคา</th>
-                            <th>คงเหลือ</th>
-                            <th width="150">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($products as $p): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($p['product_name']) ?></td>
-                                <td><?= htmlspecialchars($p['category_name']) ?></td>
-                                <td><?= number_format($p['price'], 2) ?> บาท</td>
-                                <td><?= $p['stock'] ?></td>
-                                <td>
-                                    <a href="edit_products.php?id=<?= $p['product_id'] ?>" class="btn btn-gradient btn-edit btn-sm px-2 me-2"><i class="bi bi-pencil-fill"></i>แก้ไข</a>
-                                    <button onclick="confirmDelete(<?= $p['product_id'] ?>)" class="btn btn-delete btn-sm px-2 me-2"><i class="bi bi-trash"></i>ลบ</button>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+        <!-- การ์ดเพิ่มสินค้าใหม่ -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-plus-circle-fill me-2"></i>เพิ่มสินค้าใหม่</h5>
             </div>
-            <?php else: ?>
-                <p class="text-muted">ยังไม่มีสินค้า</p>
-            <?php endif; ?>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" name="product_name" class="form-control" placeholder="ชื่อสินค้า" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" step="0.01" name="price" class="form-control" placeholder="ราคา" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="stock" class="form-control" placeholder="จำนวน" required>
+                    </div>
+                    <div class="col-md-4">
+                        <select name="category_id" class="form-select" required>
+                            <option value="">เลือกหมวดหมู่</option>
+                            <?php foreach ($categories as $cat): ?>
+                                <option value="<?= $cat['category_id'] ?>">
+                                    <?= htmlspecialchars($cat['category_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <textarea name="description" class="form-control" placeholder="รายละเอียดสินค้า"
+                            rows="2"></textarea>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">รูปสินค้า (jpg, png)</label>
+                        <input type="file" name="product_image" class="form-control">
+                    </div>
+
+                    <div class="col-12 text-end">
+                        <button type="submit" name="add_product" class="btn btn-gradient btn-edit">+
+                            เพิ่มสินค้า</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- การ์ดแสดงสินค้า -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-card-list me-2"></i>รายการสินค้า</h5>
+            </div>
+            <div class="card-body">
+                <?php if (count($products) > 0): ?>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ชื่อสินค้า</th>
+                                    <th>หมวดหมู่</th>
+                                    <th>ราคา</th>
+                                    <th>คงเหลือ</th>
+                                    <th>รูปสินค้า</th>
+                                    <th width="150">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($products as $p): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($p['product_name']) ?></td>
+                                        <td><?= htmlspecialchars($p['category_name']) ?></td>
+                                        <td><?= number_format($p['price'], 2) ?> บาท</td>
+                                        <td><?= $p['stock'] ?></td>
+                                        <td>
+                                            <?php if ($p['image']): ?>
+                                                <img src="../product_images/<?= htmlspecialchars($p['image']) ?>" width="50"
+                                                    height="50" class="rounded">
+                                            <?php else: ?>
+                                                <span class="text-muted">ไม่มีรูป</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <a href="edit_products.php?id=<?= $p['product_id'] ?>"
+                                                class="btn btn-gradient btn-edit btn-sm px-2 me-2"><i
+                                                    class="bi bi-pencil-fill"></i>แก้ไข</a>
+                                            <button onclick="confirmDelete(<?= $p['product_id'] ?>)"
+                                                class="btn btn-delete btn-sm px-2 me-2"><i class="bi bi-trash"></i>ลบ</button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <p class="text-muted">ยังไม่มีสินค้า</p>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-function confirmDelete(id) {
-    Swal.fire({
-        title: 'คุณแน่ใจหรือไม่?',
-        text: "การลบนี้ไม่สามารถกู้คืนได้!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'ใช่, ลบเลย!',
-        cancelButtonText: 'ยกเลิก'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.location.href = "products.php?delete=" + id;
+    <script>
+        function confirmDelete(id) {
+            Swal.fire({
+                title: 'คุณแน่ใจหรือไม่?',
+                text: "การลบนี้ไม่สามารถกู้คืนได้!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = "products.php?delete=" + id;
+                }
+            })
         }
-    })
-}
 
-// แสดง SweetAlert เมื่อเพิ่มหรือลบเสร็จ
-<?php if (isset($_GET['added'])): ?>
-Swal.fire("เพิ่มสินค้าเรียบร้อย!", "", "success");
-<?php endif; ?>
+        // แสดง SweetAlert เมื่อเพิ่มหรือลบเสร็จ
+        <?php if (isset($_GET['added'])): ?>
+            Swal.fire("เพิ่มสินค้าเรียบร้อย!", "", "success");
+        <?php endif; ?>
 
-<?php if (isset($_GET['deleted'])): ?>
-Swal.fire("ลบสินค้าเรียบร้อย!", "", "success");
-<?php endif; ?>
-</script>
+        <?php if (isset($_GET['deleted'])): ?>
+            Swal.fire("ลบสินค้าเรียบร้อย!", "", "success");
+        <?php endif; ?>
+    </script>
 </body>
+
 </html>

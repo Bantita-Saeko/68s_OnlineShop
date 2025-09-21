@@ -8,7 +8,7 @@ if (!isset($_GET['id'])) {
     exit;
 }
 
-$product_id = intval($_GET['id']);
+$product_id = ($_GET['id']);
 
 // ดึงข้อมูลสินค้า
 $stmt = $conn->prepare("SELECT * FROM products WHERE product_id = ?");
@@ -16,28 +16,61 @@ $stmt->execute([$product_id]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$product) {
-    header("Location: products.php");
+    echo "<h3>ไม่พบข้อมูลของสินค้า</h3>";
     exit;
 }
 
 // ดึงหมวดหมู่
 $categories = $conn->query("SELECT * FROM categories ORDER BY category_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-// อัปเดตสินค้า
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
+// เมื่อมีการส่งฟอร์ม
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['product_name']);
     $description = trim($_POST['description']);
-    $price = floatval($_POST['price']);
-    $stock = intval($_POST['stock']);
-    $category_id = intval($_POST['category_id']);
+    $price = (float) $_POST['price'];
+    $stock = (int) $_POST['stock'];
+    $category_id = (int) $_POST['category_id'];
 
-    if (!empty($name) && $price > 0) {
-        $stmt = $conn->prepare("UPDATE products SET product_name=?, description=?, price=?, stock=?, category_id=? WHERE product_id=?");
-        $stmt->execute([$name, $description, $price, $stock, $category_id, $product_id]);
+    $oldImage = $_POST['old_image'] ?? null;
+    $removeImage = isset($_POST['remove_image']); 
 
-        header("Location: products.php?updated=1");
-        exit;
+    if ($name && $price > 0) {
+        $newImageName = $oldImage; 
+        if ($removeImage) {
+            $newImageName = null;
+        }
     }
+
+    if (!empty($_FILES['product_image']['name'])) {
+        $file = $_FILES['product_image'];
+        $allowed = ['image/jpeg', 'image/png'];
+        if (in_array($file['type'], $allowed, true) && $file['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $newImageName = 'product_' . time() . '.' . $ext;
+            $uploadDir = realpath(__DIR__ . '/../product_images');
+            $destPath = $uploadDir . DIRECTORY_SEPARATOR . $newImageName;
+            if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+                $newImageName = $oldImage;
+            }
+        }
+    }
+
+    $sql = "UPDATE products
+            SET product_name = ?, description = ?, price = ?, stock = ?, category_id = ?, image = ?
+            WHERE product_id = ?";
+    $args = [$name, $description, $price, $stock, $category_id, $newImageName, $product_id];
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($args);
+
+    if (!empty($oldImage) && $oldImage !== $newImageName) {
+        $baseDir = realpath(__DIR__ . '/../product_images');
+        $filePath = realpath($baseDir . DIRECTORY_SEPARATOR . $oldImage);
+        if ($filePath && strpos($filePath, $baseDir) === 0 && is_file($filePath)) {
+            @unlink($filePath);
+        }
+    }
+    header("Location: products.php");
+    exit;
 }
 ?>
 
@@ -46,16 +79,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
 
 <head>
     <meta charset="UTF-8">
-    <title>แก้ไขสมาชิก</title>
+    <title>แก้ไขสินค้า</title>
 
-    <!-- CDN Boostrap -->
+    <!-- CDN Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.0/font/bootstrap-icons.css" rel="stylesheet">
 
-    <!-- CDN Google Fonts -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Kanit&family=Nunito&display=swap" rel="stylesheet">
 
-    <!-- CDN SweetAlert2 -->
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
@@ -64,12 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
         }
 
         .text-gradient {
-            background: linear-gradient(90deg, #80c2ffff, #a7c5ffff, #cdb4db);
+            background: linear-gradient(90deg, #80c2ff, #a7c5ff, #cdb4db);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: 700;
             font-size: 2rem;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .btn-gradient {
@@ -81,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
         }
 
         .btn-edit {
-            background: linear-gradient(135deg, #bdd1dbff, #a2cde1ff);
+            background: linear-gradient(135deg, #bdd1db, #a2cde1);
         }
 
         .btn-gradient:hover {
@@ -94,15 +126,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
             box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
             margin-top: 50px;
         }
-
-        h2 {
-            font-weight: bold;
-            color: #6c63ff;
-        }
-
-        label {
-            font-weight: 500;
-        }
     </style>
 </head>
 
@@ -114,20 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
             <a href="index.php" class="btn btn-gradient btn-edit rounded-pill">← กลับหน้าผู้ดูแล</a>
         </div>
 
-        <?php if (isset($error)): ?>
-            <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-
-        <form method="post" id="editForm">
+        <form enctype="multipart/form-data" method="POST" id="editForm">
             <div class="mb-3">
                 <label class="form-label">ชื่อสินค้า</label>
                 <input type="text" name="product_name" class="form-control"
                     value="<?= htmlspecialchars($product['product_name']) ?>" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">รายละเอียด</label>
-                <textarea name="description" class="form-control"
-                    rows="3"><?= htmlspecialchars($product['description']) ?></textarea>
             </div>
             <div class="row">
                 <div class="col-md-4 mb-3">
@@ -149,8 +163,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">รายละเอียด</label>
+                    <textarea name="description" class="form-control"
+                        rows="3"><?= htmlspecialchars($product['description']) ?></textarea>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">อัปโหลดรูปใหม่ (jpg, png)</label>
+                    <input type="file" name="product_image" id="product_image" class="form-control">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="remove_image" id="remove_image" value="1">
+                        <label class="form-check-label" for="remove_image">ลบรูปเดิม</label>
+                    </div>
+                </div>
+                <div class="col-md-6 mt-5">
+                    <label class="form-label d-block">รูปปัจจุบัน</label>
+                    <?php if (!empty($product['image'])): ?>
+                        <img src="../product_images/<?= htmlspecialchars($product['image']) ?>" width="120" height="120"
+                            class="rounded mb-2">
+                    <?php else: ?>
+                        <span class="text-muted">ไม่มีรูป</span>
+                    <?php endif; ?>
+                    <input type="hidden" name="old_image" value="<?= htmlspecialchars($product['image']) ?>">
+                </div>
             </div>
-            <div class="col-12 text-center">
+            <div class="col-12 text-start mt-3">
                 <button type="submit" class="btn btn-gradient btn-edit px-4 py-3">
                     <i class="bi bi-floppy-fill text-white"></i> บันทึกการแก้ไข</button>
             </div>
@@ -158,21 +195,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_product'])) {
     </div>
 
     <script>
-        document.querySelector("form").addEventListener("submit", function (e) {
+        document.querySelector("#editForm").addEventListener("submit", function (e) {
             e.preventDefault();
-            Swal.fire({
-                title: "คุณต้องการบันทึกการแก้ไขหรือไม่?",
-                icon: "question",
-                showCancelButton: true,
-                confirmButtonText: "บันทึก",
-                cancelButtonText: "ยกเลิก"
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    this.submit();
+            const form = this;
+            const name = form.product_name.value;
+            const price = form.price.value;
+            const stock = form.stock.value;
+            const category = form.category_id.options[form.category_id.selectedIndex].text;
+            const description = form.description.value;
+            const removeImage = form.remove_image.checked ? "ลบรูปเดิม" : "คงไว้";
+
+            const fileInput = document.getElementById("product_image");
+            const file = fileInput.files[0];
+
+            let readerPromise = Promise.resolve(null);
+
+            if (file) {
+                readerPromise = new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            readerPromise.then((imgData) => {
+                let previewHtml = `
+                    <p><strong>ชื่อสินค้า:</strong> ${name}</p>
+                    <p><strong>ราคา:</strong> ${price}</p>
+                    <p><strong>จำนวนคงเหลือ:</strong> ${stock}</p>
+                    <p><strong>หมวดหมู่:</strong> ${category}</p>
+                    <p><strong>รายละเอียด:</strong><br>${description || "-"}</p>
+                    <p><strong>การจัดการรูปเดิม:</strong> ${removeImage}</p>
+                `;
+
+                if (file) {
+                    previewHtml += `<p><strong>รูปใหม่:</strong><br><img src="${imgData}" width="150" class="rounded shadow"></p>`;
+                } else {
+                    previewHtml += `<p><strong>รูปใหม่:</strong> ไม่มีการเลือก</p>`;
                 }
+
+                Swal.fire({
+                    title: "ตรวจสอบข้อมูลก่อนบันทึก",
+                    html: previewHtml,
+                    icon: "info",
+                    showCancelButton: true,
+                    confirmButtonText: "บันทึก",
+                    cancelButtonText: "แก้ไขต่อ"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
             });
         });
     </script>
 </body>
-
 </html>

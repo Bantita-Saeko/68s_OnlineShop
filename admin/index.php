@@ -68,7 +68,7 @@ $totalCategories = $stmt->fetchColumn();
         .btn-icon { margin-right: 8px; font-size: 1.3rem; }
 
         /* Logout button */
-        .btn-logout { background-color: #cc3d3d; border: none; transition: all 0.3s; }
+        .btn-logout { background-color: #cc3d3d; color: white; border: none; transition: all 0.3s; }
         .btn-logout:hover { background-color: #b11a1a; }
 
         /* Stat Cards */
