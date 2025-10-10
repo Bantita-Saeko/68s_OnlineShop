@@ -1,7 +1,7 @@
 <?php
     require_once 'config.php';
-
-    $error = []; // Array to hold error messages
+    require 'session_timeout.php';
+    $error = [];
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = trim($_POST['username']);
@@ -10,16 +10,13 @@
         $password = $_POST['password'];
         $confirmpassword = $_POST['confirmpassword'];
         
-        // ตรวจสอบว่ากรอกข้อมูลมาครบหรือไม่ (empty)
         if (empty($username)||empty($fullname)||empty($email)||empty($password)||empty($confirmpassword) ) {
             $error[] = "กรุณากรอกข้อมูลให้ครบทุกช่อง"; 
-            // ตรวจสอบว่าอีเมลถูกต้องหรือไม่ (filter_var)
         }elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) { 
             $error[] = "กรุณากรอกอีเมลให้ถูกต้อง";
         }elseif($password !== $confirmpassword){
             $error[] = "รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน";
         }else {
-            // ตรวจสอบว่ามีชื่อผู้ใช้หรืออีเมลถูกใช้ไปแล้วหรือไม่
             $sql = "SELECT * FROM users WHERE username = ? OR email = ?";
             $stmt = $conn->prepare($sql);
             $stmt->execute([$username, $email]);
@@ -30,17 +27,16 @@
             
         }
 
-        if (empty($error)) { // ถ้าไม่มีข้อผิดพลาดใดๆ 
-            // นำข้อมูลไปบันทึกในฐานข้อมูล
+        if (empty($error)) {
 
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     
             $sql = "INSERT INTO users(username, full_name, email, password, role) VALUES (?, ?, ?, ?, 'member')";
             $stmt = $conn->prepare($sql);
             $stmt->execute([$username, $fullname, $email, $hashedPassword]);
-            // ถ้าบันทึกสำเร็จให้เปลี่ยนเส้นทางไปหน้า login
+
             header("Location: login.php?register=success");
-            exit(); // หยุดการทำงานของสคริปต์หลังจากเปลี่ยนเส้นทาง
+            exit(); 
         }
     }
 ?>
@@ -124,16 +120,14 @@
             <!-- ขวา -->
             <div class="col-md-7 right-side">
                 <h2 class="mb-4 text-center">สมัครสมาชิก</h2>
-                <?php if (!empty($error)): // ถ ้ำมีข ้อผิดพลำด ให้แสดงข ้อควำม ?>
+                <?php if (!empty($error)):?>
                     <div class="alert alert-danger">
                         <ul class="mb-0">
                             <?php foreach ($error as $e): ?>
                             <li><?= htmlspecialchars($e) ?></li>
 
-                            <!--ใช ้ htmlspecialchars เพื่อป้องกัน XSS-->
-                            <!-- < ? = คือ short echo tag ?> -->
-                            <!-- ถ้าเขียนเต็ม จะได ้แบบด ้ำนล่ำง -->
-                            <?php // echo "<li>" . htmlspecialchars($e) . "</li>"; ?>
+
+                            <?php ?>
 
                             <?php endforeach; ?>
                         </ul>

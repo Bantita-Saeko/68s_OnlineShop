@@ -1,6 +1,7 @@
 <?php
 require '../config.php'; 
 require 'authen_admin.php';
+require '../session_timeout.php';
 
 if (!isset($_GET['id'])) {
     header("Location: users.php");

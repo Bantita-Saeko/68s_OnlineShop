@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 session_start();
+require 'session_timeout.php';
 
 if(!isset($_GET['id'])){
     header('Location: index.php');
@@ -17,7 +18,7 @@ $stmt = $conn->prepare("SELECT p.*, c.category_name
 $stmt->execute([$product_id]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// เตรียมรูป
+
 $img = !empty($product['image'])
     ? 'product_images/' . rawurlencode($product['image'])
     : 'product_images/no-image.png';

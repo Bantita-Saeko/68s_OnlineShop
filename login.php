@@ -1,15 +1,15 @@
 <?php
-    session_start(); // Start the session to use session variables
+    session_start(); 
     require_once 'config.php';
 
     $error = '';
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // รับค่าจากฟอร์ม
+        
         $usernameOremail = trim($_POST['username_or_email']);
         $password = $_POST['password'];
 
-        // เอาค่าที่รับมาจากฟอร์ม ไปตรวจสอบว่ามีข้อมูลตรงกับใน db หรือไม่
+        
         $sql = "SELECT * FROM users WHERE (username = ? OR email = ?)";
         $stmt = $conn->prepare($sql);
         $stmt->execute([$usernameOremail, $usernameOremail]);
@@ -27,7 +27,7 @@
                 header("Location: index.php");
 
             }
-            exit(); // หยุดการทำงานของสคริปต์หลังจากเปลี่ยนเส้นทาง
+            exit(); 
         } else {
             $error = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
         }

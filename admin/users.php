@@ -1,24 +1,12 @@
 <?php
 require_once '../config.php';
 require_once 'authen_admin.php';
+require '../session_timeout.php';
 
-// ลบสมาชิก
-// if (isset($_GET['delete'])) {
-//     $user_id = $_GET['delete'];
-//     if ($user_id != $_SESSION['user_id']) { // ป้องกันลบตัวเอง
-//         $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ? AND role = 'member'");
-//         $stmt->execute([$user_id]);
-//     }
-//     header("Location: users.php");
-//     exit;
-// }
-
-// ดึงข้อมูลสมาชิก
 $stmt = $conn->prepare("SELECT * FROM users WHERE role='member' ORDER BY created_at DESC");
 $stmt->execute();
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// นับจำนวนสมาชิก
 $totalUsers = count($users);
 ?>
 <!DOCTYPE html>
@@ -171,7 +159,7 @@ $totalUsers = count($users);
     </div>
 
     <script>
-        // ฟังกช์ นั ส ำหรับแสดงกลอ่ งยนื ยัน SweetAlert2
+        
         function showDeleteConfirmation(userId) {
             Swal.fire({
                 title: 'คุณแน่ใจหรือไม่?',
@@ -184,7 +172,7 @@ $totalUsers = count($users);
                 confirmButtonColor: "#a2cde1ff",
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // หำกผใู้ชย้นื ยัน ใหส้ ง่ คำ่ ฟอรม์ ไปยัง delete.php เพื่อลบข ้อมูล
+                    
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = 'delUser_Sweet.php';
@@ -198,7 +186,7 @@ $totalUsers = count($users);
                 }
             });
         }
-        // แนบตัวตรวจจับเหตุกำรณ์คลิกกับองค์ปุ ่่มลบทั ่ ้งหมดที่มีคลำส delete-button
+        
         const deleteButtons = document.querySelectorAll('.btn-delete');
         deleteButtons.forEach((button) => {
             button.addEventListener('click', () => {

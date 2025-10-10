@@ -1,8 +1,9 @@
 <?php
 require '../config.php';
 require 'authen_admin.php';
+require '../session_timeout.php';
 
-// เพิ่มหมวดหมู่
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
     $category_name = trim($_POST['category_name']);
     if ($category_name) {
@@ -14,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
     }
 }
 
-// ลบหมวดหมู่
+
 if (isset($_GET['delete'])) {
     $category_id = $_GET['delete'];
     $stmt = $conn->prepare("SELECT COUNT(*) FROM products WHERE category_id = ?");
@@ -32,7 +33,7 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-// แก้ไขหมวดหมู่
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_category'])) {
     $category_id = $_POST['category_id'];
     $category_name = trim($_POST['new_name']);
@@ -45,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_category'])) {
     }
 }
 
-// ดึงหมวดหมู่ทั้งหมด
+
 $categories = $conn->query("SELECT * FROM categories ORDER BY category_id ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 $totalCategories = count($categories);
@@ -206,7 +207,7 @@ $totalCategories = count($categories);
     </div>
 
     <script>
-        // แสดง SweetAlert2 สำหรับ error/success
+        
         <?php if (isset($_SESSION['error'])): ?>
             Swal.fire({
                 icon: 'error',
@@ -225,7 +226,7 @@ $totalCategories = count($categories);
             <?php unset($_SESSION['success']); ?>
         <?php endif; ?>
 
-        // Popup ยืนยันก่อนลบ
+        
         function confirmDelete(id) {
             Swal.fire({
                 title: 'คุณแน่ใจหรือไม่?',

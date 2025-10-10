@@ -1,8 +1,8 @@
 <?php
 require '../config.php';
 require 'authen_admin.php';
+require '../session_timeout.php';
 
-// ตรวจสอบว่ามี id มั้ย
 if (!isset($_GET['id'])) {
     header("Location: products.php");
     exit;
@@ -10,7 +10,7 @@ if (!isset($_GET['id'])) {
 
 $product_id = ($_GET['id']);
 
-// ดึงข้อมูลสินค้า
+
 $stmt = $conn->prepare("SELECT * FROM products WHERE product_id = ?");
 $stmt->execute([$product_id]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -20,10 +20,10 @@ if (!$product) {
     exit;
 }
 
-// ดึงหมวดหมู่
+
 $categories = $conn->query("SELECT * FROM categories ORDER BY category_name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-// เมื่อมีการส่งฟอร์ม
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['product_name']);
     $description = trim($_POST['description']);
@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="card p-4">
         <div class="d-flex justify-content-between align-items-center">
             <h2 class="text-gradient"><i class="bi bi-box-seam"></i> แก้ไขข้อมูลสินค้า</h2>
-            <a href="index.php" class="btn btn-gradient btn-edit rounded-pill">← กลับหน้าผู้ดูแล</a>
+            <a href="products.php" class="btn btn-gradient btn-edit rounded-pill">← กลับหน้าผู้ดูแล</a>
         </div>
 
         <form enctype="multipart/form-data" method="POST" id="editForm">

@@ -1,13 +1,18 @@
 <?php
 session_start();
 require_once 'config.php';
+require 'session_timeout.php';
 
 $isLoggedIn = isset($_SESSION['user_id']);
 
-$stmt = $conn->query("SELECT p.*, c.category_name
-FROM products p
-LEFT JOIN categories c ON p.category_id = c.category_id
-ORDER BY p.created_at DESC");
+$stmt = $conn->query("SELECT p.*, c.category_name, 
+                             AVG(r.rating) AS average_rating
+                      FROM products p
+                      LEFT JOIN categories c ON p.category_id = c.category_id
+                      LEFT JOIN reviews r ON p.product_id = r.product_id  -- *เพิ่ม JOIN กับตาราง reviews*
+                      GROUP BY p.product_id, p.product_name, p.price, p.description, p.image, p.stock, p.created_at, c.category_name 
+                      -- *GROUP BY ต้องรวมคอลัมน์ทั้งหมดจากตาราง p และ c*
+                      ORDER BY p.created_at DESC");
 $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -170,6 +175,26 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .bg-success-custom {
             background-color: #75d85eff ;
         }
+        /* เพิ่ม CSS นี้ */
+        .card.out-of-stock {
+            opacity: 0.6; /* ทำให้การ์ดจางลง 40% */
+            filter: grayscale(80%); /* (ไม่บังคับ) ทำให้ภาพเป็นสีเทาเล็กน้อยเพื่อเน้น */
+        }
+        
+        .card.out-of-stock .btn-gradient,
+        .card.out-of-stock .btn-outline-primary,
+        .card.out-of-stock a {
+            pointer-events: none; /* ทำให้คลิกปุ่ม/ลิงก์ไม่ได้ */
+            cursor: default;
+        }
+
+        .card.out-of-stock .product-thumb {
+            filter: brightness(0.8); /* (ไม่บังคับ) ทำให้รูปภาพดูมืดลง */
+        }
+        .card .badge {
+            z-index: 10; /* กำหนดค่า z-index ให้สูงพอ */
+            border-radius: .375rem; /* รักษารูปแบบเดิม */
+        }
         
     </style>
 </head>
@@ -178,13 +203,16 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="text-gradient"><i class="bi bi-box-seam"></i> รายการสินค้า</h1>
+
         <div>
             <?php if ($isLoggedIn): ?>
-                <span class="me-3">ยินดีต้อนรับ, <?= htmlspecialchars($_SESSION['username']) ?>
+                <span class="me-3">ยินดีต้อนรับ, <?= htmlspecialchars($_SESSION['username']) ?> <!-- เปลี่ยนเป็น Fullname -->
                     (<?= $_SESSION['role'] ?>)</span>
                 <a href="profile.php" class="btn btn-outline-custom me-2"><i class="bi bi-person-circle"></i>
                     ข้อมูลส่วนตัว</a>
-                <a href="cart.php" class="btn btn-outline-custom me-2"><i class="bi bi-cart"></i> ดูตะกร้า</a>
+                    <a href="cart.php" class="btn btn-outline-custom me-2"><i class="bi bi-cart"></i> ดูตะกร้า</a>
+                    <a href="order.php" class="btn btn-outline-custom me-2"><i class="bi bi-clock-history"></i>
+                        ดูประวัติการสั่งซื้อ</a>
                 <a href="logout.php" class="btn btn-danger"><i class="bi bi-box-arrow-right"></i> ออกจากระบบ</a>
             <?php else: ?>
                 <a href="login.php" class="btn btn-gradient me-2">เข้าสู่ระบบ</a>
@@ -193,24 +221,43 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class=" d-flex gap-2 me-auto">
+                <a href="index.php" class="btn btn-gradient active">
+                    <i class="bi bi-grid-fill"></i> สินค้า
+                </a>
+                <a href="review.php" class="btn btn-outline-custom">
+                    <i class="bi bi-chat-square-text-fill"></i> รีวิว
+                </a>
+            </div>
+    </div>
+
     <div class="row g-4">
         <?php foreach ($products as $product):
-            // รูป
+            
             $img = !empty($product['image']) ? 'product_images/' . rawurlencode($product['image']) : 'product_images/no-image.png';
-            // Badge NEW/HOT
+            
             $isNew = isset($product['created_at']) && (time() - strtotime($product['created_at']) <= 7 * 24 * 3600);
             $isHot = (int) $product['stock'] > 0 && (int) $product['stock'] < 5;
-            // Rating
-            $rating = isset($product['rating']) ? (float) $product['rating'] : 4.5;
+            $isRunOut = (int) $product['stock'] <= 0;
+            
+            $rating = isset($product['average_rating']) && $product['average_rating'] !== null 
+                      ? (float) $product['average_rating'] 
+                      : 2.5;
+                          
+             $full = floor($rating);
             $full = floor($rating);
             $half = ($rating - $full) >= 0.5 ? 1 : 0;
             ?>
             <div class="col-md-4 col-lg-3">
-                <div class="card h-100 position-relative">
+                <div class="card h-100 position-relative <?= $isRunOut ? 'out-of-stock' : '' ?>"> 
                     <?php if ($isNew): ?>
                         <span class="badge bg-success-custom position-absolute top-0 start-0 m-2">NEW</span>
                     <?php elseif ($isHot): ?>
                         <span class="badge bg-danger position-absolute top-0 start-0 m-2">HOT</span>
+                    <?php elseif ($isRunOut): ?>
+                        <span class="badge bg-secondary position-absolute top-0 start-0 m-2">Out of Stock</span>
                     <?php endif; ?>
 
                     <a href="product_detail.php?id=<?= (int) $product['product_id'] ?>" class="d-block p-3">

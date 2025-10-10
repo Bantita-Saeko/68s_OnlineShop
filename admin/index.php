@@ -4,7 +4,7 @@ require 'authen_admin.php';
 
 $isLoggedIn = isset($_SESSION['user_id']);
 
-// ดึงจำนวนข้อมูลแต่ละตาราง
+
 $stmt = $conn->query("SELECT COUNT(*) FROM products");
 $totalProducts = $stmt->fetchColumn();
 
